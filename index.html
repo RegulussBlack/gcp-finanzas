@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GCP en Finanzas – Cartera de 4 activos</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mu:#666;--ac:#0b6e4f;--bd:#d6d9d6;--cd:#f5f7f5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181a;--fg:#e8e8e8;--mu:#9aa5a5;--ac:#4cc59a;--bd:#343b3e;--cd:#1d2326}}
+:root[data-theme="dark"]{--bg:#14181a;--fg:#e8e8e8;--mu:#9aa5a5;--ac:#4cc59a;--bd:#343b3e;--cd:#1d2326}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1000px;margin:auto;padding:14px}section{border:1px solid var(--bd);border-radius:10px;padding:14px;margin:14px 0;background:var(--cd)}
+h1{font-size:22px;margin:4px 0}h2{margin:0 0 8px;font-size:18px;color:var(--ac)}h3{font-size:15px;margin:12px 0 4px}table{border-collapse:collapse;font-size:12.5px;width:100%}td,th{border:1px solid var(--bd);padding:3px 6px;text-align:right}th{background:var(--bd)}td:first-child,th:first-child{text-align:left}
+.w{overflow-x:auto;max-width:100%}input,select,textarea{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:4px;padding:3px;width:86px;font:inherit}textarea{width:100%;height:90px;font:12px monospace}
+button{background:var(--ac);color:var(--bg);border:0;border-radius:6px;padding:6px 12px;margin:3px;font:inherit;cursor:pointer}.ok{color:#2a9d5c;font-weight:600}.bad{color:#d33;font-weight:600}.mu{color:var(--mu);font-size:13px}#err{padding:8px;border-radius:6px;border:1px solid #d33;color:#d33;display:none;margin:6px 0}
+</style></head><body><main>
+<section id="s1"><h1>Gradientes Conjugados Precondicionado en una cartera de inversión</h1>
+<div><b>Estudiante:</b> Mario Fabricio Murillo Peñaranda · <b>Carrera:</b> Informática, UMSA · <b>Mención:</b> Inteligencia Artificial y Ciencia de Datos · <b>Modalidad:</b> individual</div>
+<p>Se resuelve Σx = μ/γ (carteras de media-varianza sin restricciones) con n = 4 activos, mediante GCP (Suñagua, 2020) y GC simple, en tres escenarios: Ideal, Bajo estrés y Mal condicionado. Tolerancia ‖r‖₂/‖b‖₂ &lt; 10⁻⁶. Cambie cualquier dato y todo se recalcula.</p></section>
+
+<section id="s2"><h2>2. Caso de estudio</h2>
+<p>Un inversionista boliviano reparte capital entre cuatro activos. Con retornos mensuales (%) se estima la media μ y la matriz de covarianzas Σ. La cartera óptima de media-varianza con aversión al riesgo γ cumple γΣw = μ, es decir Ax = b con <b>A = Σ</b> y <b>b = μ/γ</b> (γ = 3). Σ es simétrica y definida positiva siempre que haya más observaciones que activos y no haya colinealidad exacta, por eso el GCP es aplicable.</p>
+<p class="mu"><b>Procedencia de los datos:</b> 36 meses de retornos <u>ilustrativos simulados</u> (modelo de un factor con semilla fija), con medias y volatilidades de orden realista para cada clase de activo. Para usar datos reales (por ejemplo, precios mensuales de ETF o fondos) péguelos en el CSV de la sección 10 y se re-estima todo.</p></section>
+
+<section id="s3"><h2>3. Formulación</h2>
+<div class="w"><table><tr><th>Variable</th><th>Significado financiero</th><th>Fila de A (aij)</th></tr>
+<tr><td>x₁</td><td>Ponderación sin normalizar en Renta variable global (RV)</td><td>cov(RV, activo j): riesgo conjunto</td></tr>
+<tr><td>x₂</td><td>Ponderación en Bonos soberanos (BS)</td><td>cov(BS, activo j)</td></tr>
+<tr><td>x₃</td><td>Ponderación en Oro (OR)</td><td>cov(OR, activo j)</td></tr>
+<tr><td>x₄</td><td>Ponderación en Tecnología/Cripto (TC)</td><td>cov(TC, activo j)</td></tr></table></div>
+<p class="mu">aii = varianza mensual del activo i (%²). aij = covarianza: positivo implica que se mueven juntos y acumulan riesgo; negativo implica diversificación. bi = μi/γ = retorno esperado mensual penalizado por la aversión al riesgo. xi &gt; 0 es posición larga y xi &lt; 0 es posición corta (modelo sin restricciones; la cartera normalizada es x/Σx).</p>
+<h3>Verificación formal (simetría y definición positiva) en los tres escenarios</h3><div id="proof"></div></section>
+
+<section id="s4"><h2>4. Entrada de datos</h2>
+<div id="err"></div>
+<div class="w"><table id="inA"></table></div>
+<p>x₀: <span id="inx0"></span></p>
+<p>Tolerancia <input id="tol" value="1e-6"> N<sub>máx</sub> <input id="nm" value="200"> Precondicionador <select id="pre"><option value="jacobi">Jacobi (diagonal)</option><option value="ssor">SSOR</option></select> ω (SSOR) <input id="om" value="1.0"> <button onclick="run()">Ejecutar</button></p></section>
+
+<section id="s5"><h2>5. Tres escenarios</h2>
+<button onclick="load('ideal')">Ideal</button><button onclick="load('stress')">Bajo estrés</button><button onclick="load('ill')">Mal condicionado</button><span id="curSc" class="mu"></span>
+<ul class="mu"><li><b>Ideal:</b> Σ estimada de los datos, b = μ/γ. κ bajo.</li>
+<li><b>Bajo estrés:</b> volatilidades ×1,6 y correlaciones aproximadas ×0,7+0,3 (en crisis todo se correlaciona); μ cae por inflación y suba de tasas (RV −1,2; BS −0,2; OR +0,2; TC −2,0 puntos). Cambia A y b.</li>
+<li><b>Mal condicionado:</b> activos expresados en unidades de escala distinta d = (1, 10, 0,1, 25) (A = DΣD, b = Db) y correlación 0,97 entre todos. Mal escalamiento diagonal más colinealidad.</li></ul></section>
+
+<section id="s6"><h2>6. Solución de referencia (método directo: Cholesky)</h2><div id="ref"></div></section>
+<section id="s7"><h2>7. GCP vs GC</h2><div id="cmp"></div><div id="plot"></div></section>
+<section id="s8"><h2>8. Análisis de errores</h2><div id="errs"></div>
+<h3>Tabla comparativa de los tres escenarios (con los parámetros actuales)</h3><div id="big"></div></section>
+
+<section id="s9"><h2>9. Módulo de pruebas (QA)</h2><button onclick="qa()">Ejecutar pruebas</button><div id="qa"></div></section>
+
+<section id="s10"><h2>10. Aporte de la mención: datos, covarianzas y sensibilidad</h2>
+<p>Preparación: pegue retornos mensuales en % (4 columnas separadas por coma: RV,BS,OR,TC). Se descartan filas incompletas o no numéricas.</p>
+<textarea id="csv"></textarea><button onclick="estim()">Estimar μ y Σ</button><div id="eda"></div>
+<h3>Sensibilidad: cambio en x al subir 10 % cada bi (sistema cargado)</h3><div id="sens"></div></section>
+
+<section id="s11"><h2>11. Conclusiones y referencias</h2>
+<p><b>Matemática:</b> en n = 4 el GC converge teóricamente en ≤ 4 pasos, pero en aritmética finita el mal condicionamiento retrasa la convergencia. El precondicionador de Jacobi elimina el mal escalamiento y reduce κ(M⁻¹A) hasta el nivel de la correlación; con ρ = 0,97 queda un κ moderado que Jacobi no puede quitar, y SSOR actúa sobre ese acoplamiento. Ver las tablas con los números reales.</p>
+<p><b>Financiera:</b> el estrés casi no cambia el condicionamiento por sí mismo: desplaza el punto de equilibrio (más riesgo, menos retorno, posiciones más pequeñas). La colinealidad extrema produce posiciones enormes de signos opuestos (solución inestable ante pequeñas variaciones de μ), por eso en la práctica se regulariza Σ (shrinkage).</p>
+<p class="mu">Suñagua S., P. (2020). Método de Gradientes Conjugados Precondicionado. Revista Boliviana de Matemática, UMSA, 04, 2–7. · Golub, G. H., &amp; Van Loan, C. F. (2013). Matrix Computations (4th ed.). Johns Hopkins. · Saad, Y. (2003). Iterative Methods for Sparse Linear Systems (2nd ed.). SIAM. · Datos: simulados con fines académicos.</p></section>
+</main>
+<script>
+const $=id=>document.getElementById(id),dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),nrm=a=>Math.sqrt(dot(a,a)),mv=(A,x)=>A.map(r=>dot(r,x)),sub=(a,b)=>a.map((v,i)=>v-b[i]);
+const AN=['RV','BS','OR','TC'],G=3,SC={ideal:'Ideal',stress:'Bajo estrés',ill:'Mal condicionado'};
+const f=v=>isFinite(v)?(v==0?'0':(Math.abs(v)>=1e5||Math.abs(v)<1e-4?v.toExponential(3):''+(+v.toPrecision(6)))):'—';
+const tb=(h,r)=>'<div class="w"><table><tr>'+h.map(x=>'<th>'+x+'</th>').join('')+'</tr>'+r.map(x=>'<tr>'+x.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table></div>';
+function chol(A){const n=A.length,L=A.map(()=>Array(n).fill(0));for(let i=0;i<n;i++)for(let j=0;j<=i;j++){let s=A[i][j];for(let k=0;k<j;k++)s-=L[i][k]*L[j][k];if(i==j){if(!(s>0))return null;L[i][i]=Math.sqrt(s)}else L[i][j]=s/L[j][j]}return L}
+const fw=(L,b)=>{const y=[];b.forEach((v,i)=>{let s=v;for(let k=0;k<i;k++)s-=L[i][k]*y[k];y[i]=s/L[i][i]});return y};
+const bw=(L,y)=>{const n=y.length,x=Array(n);for(let i=n-1;i>=0;i--){let s=y[i];for(let k=i+1;k<n;k++)s-=L[k][i]*x[k];x[i]=s/L[i][i]}return x};
+const cs=(L,b)=>bw(L,fw(L,b));
+function eig(A){const n=A.length;A=A.map(r=>[...r]);for(let sw=0;sw<100;sw++){let off=0,tot=0;for(let i=0;i<n;i++){tot+=A[i][i]**2;for(let j=i+1;j<n;j++)off+=A[i][j]**2}if(off<=1e-28*tot)break;for(let p=0;p<n;p++)for(let q=p+1;q<n;q++){if(A[p][q]==0)continue;const th=(A[q][q]-A[p][p])/(2*A[p][q]),t=Math.sign(th||1)/(Math.abs(th)+Math.sqrt(th*th+1)),c=1/Math.sqrt(t*t+1),s=t*c;for(let k=0;k<n;k++){const a=A[k][p],b=A[k][q];A[k][p]=c*a-s*b;A[k][q]=s*a+c*b}for(let k=0;k<n;k++){const a=A[p][k],b=A[q][k];A[p][k]=c*a-s*b;A[q][k]=s*a+c*b}}}return A.map((r,i)=>r[i]).sort((a,b)=>a-b)}
+function minor(A,k){const m=A.slice(0,k).map(r=>r.slice(0,k));let d=1;for(let i=0;i<k;i++){if(m[i][i]==0)return 0;d*=m[i][i];for(let r=i+1;r<k;r++){const q=m[r][i]/m[i][i];for(let c=i;c<k;c++)m[r][c]-=q*m[i][c]}}return d}
+function buildM(A,t,w){const n=4,M=A.map(()=>Array(n).fill(0));if(t=='jacobi'){for(let i=0;i<n;i++)M[i][i]=A[i][i];return M}
+const Lw=A.map((r,i)=>r.map((v,j)=>j<i?v:j==i?v/w:0)),c=w/(2-w);for(let i=0;i<n;i++)for(let j=0;j<n;j++){let s=0;for(let k=0;k<n;k++)s+=Lw[i][k]*Lw[j][k]/A[k][k];M[i][j]=c*s}return M}
+function pcg(A,b,x0,tol,nm,M){const L=M?chol(M):null,ap=r=>L?cs(L,r):r.slice();let x=[...x0],r=sub(b,mv(A,x)),z=ap(r),p=[...z],rz=dot(r,z),nb=nrm(b),h=[nrm(r)/nb],k=0;
+while(h[k]>=tol&&k<nm){const Ap=mv(A,p),al=rz/dot(p,Ap);x=x.map((v,i)=>v+al*p[i]);r=r.map((v,i)=>v-al*Ap[i]);z=ap(r);const rz2=dot(r,z),be=rz2/rz;rz=rz2;p=z.map((v,i)=>v+be*p[i]);k++;h.push(nrm(r)/nb)}return{x,k,h,ok:h[k]<tol}}
+function validate(A,b){if([...A.flat(),...b].some(v=>!isFinite(v)))return'Hay valores no numéricos en A o b.';let m=0,d=0;for(let i=0;i<4;i++)for(let j=0;j<4;j++){m=Math.max(m,Math.abs(A[i][j]));d=Math.max(d,Math.abs(A[i][j]-A[j][i]))}
+if(d>1e-9*Math.max(1,m))return'A no es simétrica (máx|aij−aji| = '+d.toExponential(2)+').';if(!chol(A))return'A no es definida positiva (falla Cholesky: algún menor principal ≤ 0).';if(nrm(b)==0)return'‖b‖ = 0: el residuo relativo no está definido.';return null}
+function analyze(A,b,x0,tol,nm,pre,w){const e=validate(A,b);if(e)return{err:e};const xr=cs(chol(A),b),M=buildM(A,pre,w),g=pcg(A,b,x0,tol,nm,M),c=pcg(A,b,x0,tol,nm,null),ev=eig(A),kA=ev[3]/ev[0];
+const C=chol(M),ci=X=>X[0].map((_,j)=>fw(C,X.map(r=>r[j]))),e2=eig(ci(ci(A))),kM=e2[3]/e2[0];return{xr,g,c,kA,kM,ev,res:nrm(sub(b,mv(A,g.x)))/nrm(b),resC:nrm(sub(b,mv(A,c.x)))/nrm(b)}}
+// ---- datos
+let seed=2026;const rnd=()=>{seed=(seed*1664525+1013904223)%4294967296;return seed/4294967296},gau=()=>Math.sqrt(-2*Math.log(rnd()+1e-12))*Math.cos(2*Math.PI*rnd());
+function gen(){seed=2026;const mu=[.8,.35,.45,1.2],ld=[3,-.2,.5,5],id=[2.5,1.1,3.4,5.5],s=[];for(let t=0;t<36;t++){const fc=gau();s.push(mu.map((m,i)=>(m+ld[i]*fc+id[i]*gau()).toFixed(2)).join(','))}return s.join('\n')}
+let EST;
+function estimate(txt){const all=txt.trim().split(/\n/).map(l=>l.split(',').map(Number)),rows=all.filter(r=>r.length==4&&r.every(isFinite)),n=rows.length;if(n<6)return null;
+const mu=[0,1,2,3].map(j=>rows.reduce((s,r)=>s+r[j],0)/n),S=[0,1,2,3].map(i=>[0,1,2,3].map(j=>rows.reduce((s,r)=>s+(r[i]-mu[i])*(r[j]-mu[j]),0)/(n-1))),sd=S.map((r,i)=>Math.sqrt(r[i])),C=S.map((r,i)=>r.map((v,j)=>v/sd[i]/sd[j]));
+return{mu,S,sd,C,n,drop:all.length-n,rows}}
+function scen(){const{mu,S,sd,C}=EST,J=(c,s)=>c.map((r,i)=>r.map((v,j)=>s[i]*s[j]*v));
+const C2=C.map((r,i)=>r.map((v,j)=>i==j?1:.7*v+.3)),s2=sd.map(v=>1.6*v),d=[1,10,.1,25],C3=C.map((r,i)=>r.map((v,j)=>i==j?1:.97)),s3=sd.map((v,i)=>v*d[i]),shock=[1.2,.2,-.2,2];
+return{ideal:{A:S,b:mu.map(v=>v/G)},stress:{A:J(C2,s2),b:mu.map((v,i)=>(v-shock[i])/G)},ill:{A:J(C3,s3),b:mu.map((v,i)=>d[i]*v/G)}}}
+// ---- UI
+function build(){let h='<tr><th></th>'+AN.map(a=>'<th>'+a+'</th>').join('')+'<th>b</th></tr>';for(let i=0;i<4;i++){h+='<tr><td>'+AN[i]+'</td>';for(let j=0;j<4;j++)h+='<td><input class="i" id="a'+i+j+'"></td>';h+='<td><input class="i" id="b'+i+'"></td></tr>'}$('inA').innerHTML=h;$('inx0').innerHTML=[0,1,2,3].map(i=>'<input class="i" id="x'+i+'" value="0">').join(' ')}
+function setIn(A,b){for(let i=0;i<4;i++){$('b'+i).value=+b[i].toPrecision(10);for(let j=0;j<4;j++)$('a'+i+j).value=+A[i][j].toPrecision(10)}}
+function rd(){const g=id=>parseFloat($(id).value),A=[0,1,2,3].map(i=>[0,1,2,3].map(j=>g('a'+i+j)));return{A,b:[0,1,2,3].map(i=>g('b'+i)),x0:[0,1,2,3].map(i=>g('x'+i)),tol:g('tol'),nm:Math.round(g('nm')),pre:$('pre').value,w:g('om')}}
+function load(k){setIn(SC()[k].A,SC()[k].b);$('curSc').textContent=' Cargado: '+SC[k];run()}
+const SCc=()=>scen();function SC_(){return scen()}
+function plot(g,c){const m=Math.max(g.h.length,c.h.length,2),W=460,H=170,lg=v=>Math.log10(Math.max(v,1e-16)),all=[...g.h,...c.h].map(lg),lo=Math.floor(Math.min(...all,-7)),hi=Math.ceil(Math.max(...all,0)),X=i=>40+i*(W-50)/(m-1),Y=v=>10+(hi-lg(v))*(H-30)/(hi-lo),P=(h,col)=>'<polyline fill="none" stroke="'+col+'" stroke-width="2" points="'+h.map((v,i)=>X(i)+','+Y(v)).join(' ')+'"/>';
+return'<svg viewBox="0 0 '+W+' '+(H+10)+'" style="max-width:100%;width:480px"><g fill="currentColor" font-size="10"><text x="2" y="14">10^'+hi+'</text><text x="2" y="'+(H-12)+'">10^'+lo+'</text><text x="40" y="'+(H+6)+'">iteración (0–'+(m-1)+')</text></g>'+P(c.h,'#d9822b')+P(g.h,'#2a9d5c')+'<line x1="40" y1="'+Y(1e-6)+'" x2="'+(W-10)+'" y2="'+Y(1e-6)+'" stroke="#888" stroke-dasharray="4"/><text x="250" y="22" font-size="11" fill="#2a9d5c">— GCP</text><text x="310" y="22" font-size="11" fill="#d9822b">— GC</text></svg>'}
+function run(){const s=rd(),r=analyze(s.A,s.b,s.x0,s.tol,s.nm,s.pre,s.w),E=$('err');
+if(r.err){E.style.display='block';E.textContent='⚠ '+r.err+' El cálculo se detuvo sin colapsar; corrija los datos.';['ref','cmp','plot','errs','sens'].forEach(i=>$(i).innerHTML='')}
+else{E.style.display='none';$('ref').innerHTML=tb(['Variable','x_ref (Cholesky)','Cartera normalizada'],r.xr.map((v,i)=>[AN[i],f(v),f(v/r.xr.reduce((a,b)=>a+b,0)*100)+' %']))+'<p class="mu">Autovalores de A: '+r.ev.map(f).join(', ')+'</p>';
+$('cmp').innerHTML=tb(['Método','Iteraciones','Residuo relativo final','¿Convergió?','x aproximada'],[['GCP ('+s.pre+')',r.g.k,f(r.res),r.g.ok?'<span class=ok>Sí</span>':'<span class=bad>No</span>','['+r.g.x.map(f).join(', ')+']'],['GC simple',r.c.k,f(r.resC),r.c.ok?'<span class=ok>Sí</span>':'<span class=bad>No</span>','['+r.c.x.map(f).join(', ')+']']])+'<p>κ(A) = <b>'+f(r.kA)+'</b> · κ(M⁻¹A) = <b>'+f(r.kM)+'</b></p>';
+$('plot').innerHTML=plot(r.g,r.c);
+$('errs').innerHTML=tb(['Variable','x_ref','x_GCP','Error absoluto','Error relativo','Error porcentual'],r.xr.map((v,i)=>{const ea=Math.abs(v-r.g.x[i]);return[AN[i],f(v),f(r.g.x[i]),f(ea),v==0?'no definido':f(ea/Math.abs(v)),v==0?'no definido':f(ea/Math.abs(v)*100)+' %']}))+'<p>Residuo relativo global ‖b−Ax_GCP‖₂/‖b‖₂ = <b>'+f(r.res)+'</b></p>';
+const L=chol(s.A);$('sens').innerHTML=tb(['Sube 10 % b de ↓ / Δx →',...AN],[0,1,2,3].map(i=>{const db=[0,0,0,0];db[i]=.1*Math.abs(s.b[i]);return[AN[i],...cs(L,db).map(f)]}))}
+big()}
+const IT=['Retornos y riesgos en equilibrio: la cartera óptima es diversificada y estable.','Más riesgo y menos retorno reducen y reordenan posiciones; el sistema sigue bien condicionado: solo se desplazó el equilibrio.','Activos casi colineales y mal escalados: pequeñas variaciones de μ generan posiciones enormes y opuestas. Hace falta precondicionar y regularizar Σ.'];
+function big(){const s=rd(),T=scen(),ks=['ideal','stress','ill'],R=ks.map(k=>analyze(T[k].A,T[k].b,[0,0,0,0],s.tol,s.nm,s.pre,s.w)),ok=R.every(r=>!r.err);if(!ok){$('big').textContent='Parámetros inválidos.';return}
+const v=a=>'['+a.map(f).join(', ')+']',ea=R.map(r=>r.xr.map((x,i)=>Math.abs(x-r.g.x[i])));
+$('big').innerHTML=tb(['Indicador','Ideal','Bajo estrés','Mal condicionado'],[['Solución de referencia',...R.map(r=>v(r.xr))],['Solución GCP',...R.map(r=>v(r.g.x))],['Error absoluto (Ea)',...ea.map(v)],['Error porcentual (Ep)',...R.map((r,j)=>'['+r.xr.map((x,i)=>x==0?'n.d.':f(ea[j][i]/Math.abs(x)*100)+'%').join(', ')+']')],['Iteraciones GC',...R.map(r=>r.c.k)],['Iteraciones GCP',...R.map(r=>r.g.k)],['κ(A)',...R.map(r=>f(r.kA))],['κ(M⁻¹A)',...R.map(r=>f(r.kM))],['Residuo relativo final GCP',...R.map(r=>f(r.res))],['¿Convergió?',...R.map(r=>r.g.ok?'Sí':'No')],['Interpretación financiera',...IT]]);
+$('proof').innerHTML=ks.map((k,j)=>{const A=T[k].A,d=Math.max(...A.map((r,i)=>Math.max(...r.map((x,l)=>Math.abs(x-A[l][i]))))),mn=[1,2,3,4].map(i=>minor(A,i));return'<h3>'+SC[k]+'</h3>'+tb(['A','RV','BS','OR','TC','b'],A.map((r,i)=>[AN[i],...r.map(f),f(T[k].b[i])]))+'<p class="mu">Simetría: máx|aij−aji| = '+f(d)+' ⇒ A = Aᵀ. Autovalores: '+R[j].ev.map(f).join(', ')+' (todos &gt; 0). Sylvester, menores principales: '+mn.map(f).join(', ')+' (todos &gt; 0) ⇒ A es definida positiva. κ(A) = '+f(R[j].kA)+'.</p>'}).join('')}
+function estim(){const e=estimate($('csv').value);if(!e){$('eda').innerHTML='<p class=bad>Se necesitan al menos 6 filas válidas con 4 columnas.</p>';return}EST=e;eda();$('curSc').textContent='';load('ideal')}
+function eda(){const e=EST,mn=j=>Math.min(...e.rows.map(r=>r[j])),mx=j=>Math.max(...e.rows.map(r=>r[j]));
+$('eda').innerHTML='<p class="mu">Observaciones válidas: '+e.n+' · filas descartadas: '+e.drop+'</p>'+tb(['Activo','Media μ (%)','Desv. est. (%)','Mín','Máx'],AN.map((a,i)=>[a,f(e.mu[i]),f(e.sd[i]),f(mn(i)),f(mx(i))]))+'<h3>Correlaciones</h3>'+tb(['',...AN],e.C.map((r,i)=>[AN[i],...r.map(f)]))}
+function qa(){const T=scen(),R=[],P=(n,ent,esp,obt,ok)=>R.push([n,ent,esp,obt,ok?'<span class=ok>Aprobada</span>':'<span class=bad>Fallida</span>']),z=[0,0,0,0];
+try{const o=['ideal','stress','ill'].map(k=>analyze(T[k].A,T[k].b,z,1e-6,200,'jacobi',1));P('1. Carga de escenarios','Ideal, Estrés, Mal cond.','Los 3 válidos, GCP converge, error rel. &lt; 1e-4','conv: '+o.map(r=>r.err?'ERR':r.g.ok).join('/')+'; iter GCP: '+o.map(r=>r.g.k).join('/'),o.every(r=>!r.err&&r.g.ok&&nrm(sub(r.xr,r.g.x))/nrm(r.xr)<1e-4))}catch(e){P('1','—','—',e.message,0)}
+try{const a=T.ideal.A.map(r=>[...r]);a[0][1]+=5;const r1=analyze(a,T.ideal.b,z,1e-6,200,'jacobi',1),a2=[[1,2,0,0],[2,1,0,0],[0,0,1,0],[0,0,0,1]],r2=analyze(a2,[1,1,1,1],z,1e-6,200,'jacobi',1);P('2. Matriz no válida','(a) a₁₂ alterado sin simetría; (b) matriz simétrica con autovalor −1','Mensaje de error, sin colapsar','(a) '+(r1.err||'sin error')+' (b) '+(r2.err||'sin error'),!!(r1.err&&r2.err&&/simétrica/.test(r1.err)&&/definida/.test(r2.err)))}catch(e){P('2','—','—',e.message,0)}
+try{const b0=analyze(T.ideal.A,T.ideal.b,z,1e-6,200,'jacobi',1),a=T.ideal.A.map(r=>[...r]);a[2][2]+=2;const r=analyze(a,T.ideal.b,z,1e-6,200,'jacobi',1);P('3. Edición dinámica','a₃₃ += 2 (Ideal)','x_ref cambia y GCP coincide con la nueva x_ref','Δx₃ = '+f(r.xr[2]-b0.xr[2])+'; error rel. = '+f(nrm(sub(r.xr,r.g.x))/nrm(r.xr)),r.xr[2]!=b0.xr[2]&&nrm(sub(r.xr,r.g.x))/nrm(r.xr)<1e-4)}catch(e){P('3','—','—',e.message,0)}
+try{const j=analyze(T.ill.A,T.ill.b,z,1e-6,200,'jacobi',1);P('4. Comparativa de precondicionamiento','Escenario mal condicionado, Jacobi','Iter GCP ≤ Iter GC','GCP = '+j.g.k+', GC = '+j.c.k+'; κ '+f(j.kA)+' → '+f(j.kM),j.g.k<=j.c.k)}catch(e){P('4','—','—',e.message,0)}
+$('qa').innerHTML=tb(['Prueba','Entrada','Resultado esperado','Resultado obtenido','Conclusión'],R)}
+window.SC=Object.assign(k=>SC_()[k],{});
+EST=estimate(gen());$('csv').value=gen();build();
+const SCN={ideal:'Ideal',stress:'Bajo estrés',ill:'Mal condicionado'};
+window.load=function(k){const t=scen()[k];setIn(t.A,t.b);$('curSc').textContent=' Cargado: '+SCN[k];run()};
+document.addEventListener('input',e=>{if(e.target.classList.contains('i')||['tol','nm','om'].includes(e.target.id))run()});$('pre').onchange=run;
+eda();window.load('ideal');
+</script></body></html>
